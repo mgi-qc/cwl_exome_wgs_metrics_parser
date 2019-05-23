@@ -256,7 +256,7 @@ def file_check(file_dir):
 
     while True:
         for qc_file in exome_qc_file_list:
-            found_files = glob.glob(file_dir+'/results/*{}*'.format(qc_file))
+            found_files = glob.glob(file_dir+'*{}*'.format(qc_file))
 
         # check each file used,
             if not found_files:
@@ -284,6 +284,14 @@ def file_check(file_dir):
         if 'y' in file_confirm.lower():
             print('**********')
             return exome_qc_files_dict
+
+
+def get_modelgroup_results_dir(model_list):
+    for model in model_list:
+        results_dir = model.split('\t')[3]
+        if os.path.isdir(os.path.join(model.split('\t')[3], 'results/')):
+            return os.path.join(model.split('\t')[3], 'results/')
+    return results_dir
 
 
 # Aye ordered these columns
@@ -327,9 +335,9 @@ for id in id_list:
                                                 "last_succeeded_build.id,name,status,last_succeeded_build.data_directory,"
                                                 "subject.name", "--style=tsv", "--nohead"]).decode('utf-8').splitlines()
 
-    model_group_dir = model_groups[0].split('\t')[3]
+    model_group_dir = get_modelgroup_results_dir(model_groups)
 
-    if not os.path.isdir(model_group_dir + '/results/'):
+    if not os.path.isdir(model_group_dir):
         print('SKIPPING EXOME QC FOR: {}'.format(id))
         print('{}/results/ not found.'.format(model_group_dir))
         print('\n----------')
@@ -377,6 +385,10 @@ for id in id_list:
             results['status'] = info[2]
             results['data_directory'] = info[3]
             results['sample_name'] = info[4]
+
+            if not os.path.isdir(info[3] + '/results'):
+                print('{} directory not found'.format(info[3] + '/results'))
+                continue
 
             os.chdir(info[3] + '/results')
 
