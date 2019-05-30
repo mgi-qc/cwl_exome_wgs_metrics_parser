@@ -276,7 +276,7 @@ def file_check(file_dir):
         # else, check with user which file type to use
         # return file profile to qc, user accepts.
         print('\n**********')
-        print('Exome QC Profile\n')
+        print('QC Profile\n')
         for file_name, file in sorted(exome_qc_files_dict.items()):
             print('{}: {}'.format(file_name, file))
         file_confirm = input('\nconfirm file selection y, anything else to re-start:\n')
@@ -545,10 +545,12 @@ for id in id_list:
 
 if args.e:
     print('----------')
-    print('cwl.exome.metrics generation complete.\nRunning exome_report on cwl exome metrics files.')
+    print('cwl.metrics.parser.py generation complete.\nRunning exome_report on cwl exome metrics files.')
     print('----------')
     subprocess.run(["/gscuser/awagner/bin/python3", "/gscuser/awollam/aw/exome_report.py"])
 
-# if args.wgs:
-    # TODO
-    # Thomas wgs report script goes here. 
+if args.wgs:
+    print('----------')
+    print('cwl.metrics.parser.py generation complete.\nRunning wgs_report on cwl wgs metrics files.')
+    print('----------')
+    subprocess.run(["/gscuser/awagner/bin/python3", "/gscuser/awollam/aw/wgs_report.py"])
