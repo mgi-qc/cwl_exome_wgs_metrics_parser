@@ -243,7 +243,9 @@ def file_pick(list_of_files, file_type):
         # print files to terminal, with no, have user pick file, return file name
         user_input = input()
         if user_input.isdigit() and int(user_input) > 0 and int(user_input) - 1 < len(list_of_files):
-            return list_of_files[int(user_input) - 1]
+            filename_list = list_of_files[int(user_input) - 1].split('.')
+            file_flag = [i for i, s in enumerate(filename_list) if file_type in s]
+            return filename_list[file_flag[0]]
 
         print('Please pick a file number between 1 and {}:'.format(len(list_of_files)))
 
@@ -252,7 +254,7 @@ def file_check(file_dir):
     exome_qc_files_dict = {}
     exome_qc_file_list = ['HsMetrics', 'mark_dups_metrics', 'GcBiasMetricsSummary',
                           'AlignmentSummaryMetrics', 'WgsMetrics', 'InsertSizeMetrics',
-                          'VerifyBamId.selfSM', '.cram']
+                          'VerifyBamId.selfSM', 'flagstat', 'cram']
 
     while True:
         for qc_file in exome_qc_file_list:
@@ -270,7 +272,15 @@ def file_check(file_dir):
             else:
                 print('\n----------\n')
                 print('Only 1 {file_name} file found. QC\'ing with {file_name}.'.format(file_name=qc_file))
-                exome_qc_files_dict[qc_file] = found_files[0].split('/')[-1]
+                filename = found_files[0].split('/')[-1]
+
+                if qc_file == 'VerifyBamId.selfSM':
+                    exome_qc_files_dict[qc_file] = 'VerifyBamId.selfSM'
+                    continue
+
+                filename_list = filename.split('.')
+                file_flag = [i for i, s in enumerate(filename_list) if qc_file in s]
+                exome_qc_files_dict[qc_file] = filename_list[file_flag[0]]
 
         # if there's only one, assign to file dict
         # else, check with user which file type to use
@@ -287,21 +297,26 @@ def file_check(file_dir):
 
 
 def get_modelgroup_results_dir(model_list):
+    dir_found = False
     for model in model_list:
         results_dir = model.split('\t')[3]
         if os.path.isdir(os.path.join(model.split('\t')[3], 'results/')):
+            dir_found = True
             return os.path.join(model.split('\t')[3], 'results/')
-    return results_dir
+    if not dir_found:
+        sys.exit('No Results directories found for any model groups.')
 
 
 # Aye ordered these columns
-met_wgs_header = ['Admin', 'WorkOrder','date_QC','sample_name','common_name','model_name','last_succeeded_build','data_directory',
-                  'cram_file','status', 'ALIGNED_READS','mapped_rate','FOP: PF_MISMATCH_RATE','SOP: PF_MISMATCH_RATE',
-                  'FREEMIX','HAPLOID COVERAGE','PCT_10X', 'PCT_20X','PCT_30X','discordant_rate',
-                  'inter-chromosomal_Pairing rate','HET_SNP_Q','HET_SNP_SENSITIVITY',
-                  'MEAN_COVERAGE','SD_COVERAGE','MEAN_INSERT_SIZE','STANDARD_DEVIATION','PCT_ADAPTER','PF_READS',
-                  'PF_ALIGNED_BASES','PERCENT_DUPLICATION','TOTAL_READS','properly_paired-rate',
-                  'PF_HQ_ALIGNED_Q20_BASE','PF_READS_ALIGNED','GENOME_TERRITORY','SEQ_ID']
+met_wgs_header = ['Admin', 'WorkOrder', 'date_QC', 'sample_name', 'common_name', 'model_name', 'last_succeeded_build',
+                  'data_directory',
+                  'cram_file', 'status', 'ALIGNED_READS', 'mapped_rate', 'FOP: PF_MISMATCH_RATE',
+                  'SOP: PF_MISMATCH_RATE',
+                  'FREEMIX', 'HAPLOID COVERAGE', 'PCT_10X', 'PCT_20X', 'PCT_30X', 'discordant_rate',
+                  'inter-chromosomal_Pairing rate', 'HET_SNP_Q', 'HET_SNP_SENSITIVITY',
+                  'MEAN_COVERAGE', 'SD_COVERAGE', 'MEAN_INSERT_SIZE', 'STANDARD_DEVIATION', 'PCT_ADAPTER', 'PF_READS',
+                  'PF_ALIGNED_BASES', 'PERCENT_DUPLICATION', 'TOTAL_READS', 'properly_paired-rate',
+                  'PF_HQ_ALIGNED_Q20_BASE', 'PF_READS_ALIGNED', 'GENOME_TERRITORY', 'SEQ_ID']
 
 met_wgs_header[1] = anp_or_woid
 
@@ -396,8 +411,13 @@ for id in id_list:
             os.chdir(info[3] + '/results')
 
             results['cram_file'] = 'NA'
-            if os.path.isfile(exome_qc_files['.cram']):
-                results['cram_file'] = os.getcwd() + '/{}'.format(exome_qc_files['.cram'])
+            cram_file = glob.glob('*{}'.format(exome_qc_files['cram']))
+            if not cram_file:
+                cram_file = 'NA'
+            else:
+                cram_file = cram_file[0]
+            if os.path.isfile(cram_file):
+                results['cram_file'] = os.getcwd() + '/{}'.format(cram_file)
 
             if os.path.isfile(exome_qc_files['VerifyBamId.selfSM']):
                 verify_bamid(exome_qc_files['VerifyBamId.selfSM'])
@@ -405,34 +425,58 @@ for id in id_list:
                 results['SEQ_ID'] = 'FNF'
                 results['FREEMIX'] = 'FNF'
 
+            ism = glob.glob('*{}*'.format(exome_qc_files['InsertSizeMetrics']))
+            if not ism:
+                ism = exome_qc_files['InsertSizeMetrics']
+            else:
+                ism = ism[0]
             if os.path.isfile(exome_qc_files['InsertSizeMetrics']):
                 insert_size_metrics(exome_qc_files['InsertSizeMetrics'])
             else:
                 results['MEAN_INSERT_SIZE'] = 'FNF'
                 results['STANDARD_DEVIATION'] = 'FNF'
 
-            # add file to file check if need later
-            if os.path.isfile('flagstat.out'):
-                flagstat_out('flagstat.out')
+            flagstat = glob.glob('*{}*'.format(exome_qc_files['flagstat']))
+            if not flagstat:
+                flagstat = exome_qc_files['flagstat']
+            else:
+                flagstat = flagstat[0]
+            if os.path.isfile(flagstat):
+                flagstat_out(flagstat)
             else:
                 results['mapped_rate'] = 'FNF'
                 results['properly_paired-rate'] = 'FNF'
                 results['discordant_rate'] = 'FNF'
                 results['inter-chromosomal_Pairing rate'] = 'FNF'
 
-            if os.path.isfile(exome_qc_files['mark_dups_metrics']):
-                perc_dup = mark_dups_metrics(exome_qc_files['mark_dups_metrics'], info[4])
+            mdp = glob.glob('*{}*'.format(exome_qc_files['mark_dups_metrics']))
+            if not mdp:
+                mdp = exome_qc_files['mark_dups_metrics']
+            else:
+                mdp = mdp[0]
+            if os.path.isfile(mdp):
+                perc_dup = mark_dups_metrics(mdp, info[4])
             else:
                 results['PERCENT_DUPLICATION'] = 'FNF'
                 perc_dup = False
 
-            if os.path.isfile(exome_qc_files['GcBiasMetricsSummary']):
-                gcbias_metrics_summary(exome_qc_files['GcBiasMetricsSummary'])
+            gbms = glob.glob('*{}*'.format(exome_qc_files['GcBiasMetricsSummary']))
+            if not gbms:
+                gbms = exome_qc_files['GcBiasMetricsSummary']
+            else:
+                gbms = gbms[0]
+            if os.path.isfile(gbms):
+                gcbias_metrics_summary(gbms)
             else:
                 results['ALIGNED_READS'] = 'FNF'
 
-            if os.path.isfile(exome_qc_files['AlignmentSummaryMetrics']):
-                pfalgnbases = alignment_summary_metrics(exome_qc_files['AlignmentSummaryMetrics'])
+            asm = glob.glob('*{}*'.format(exome_qc_files['AlignmentSummaryMetrics']))
+            if not asm:
+                asm = exome_qc_files['AlignmentSummaryMetrics']
+            else:
+                asm = asm[0]
+            if os.path.isfile(asm):
+                pfalgnbases = alignment_summary_metrics(asm)
             else:
                 results['TOTAL_READS'] = 'FNF'
                 results['PF_READS'] = 'FNF'
@@ -442,8 +486,13 @@ for id in id_list:
                 results['PCT_ADAPTER'] = 'FNF'
                 pfalgnbases = False
 
-            if os.path.isfile(exome_qc_files['WgsMetrics']):
-                genome_terr = wgs_metrics(exome_qc_files['WgsMetrics'])
+            wm = glob.glob('*{}*'.format(exome_qc_files['WgsMetrics']))
+            if not wm:
+                wm = exome_qc_files['WgsMetrics']
+            else:
+                wm = wm[0]
+            if os.path.isfile(wm):
+                genome_terr = wgs_metrics(wm)
             else:
                 results['GENOME_TERRITORY'] = 'FNF'
                 results['MEAN_COVERAGE'] = 'FNF'
@@ -461,8 +510,13 @@ for id in id_list:
             else:
                 results['HAPLOID COVERAGE'] = 'FNF'
 
-            if os.path.isfile(exome_qc_files['HsMetrics']):
-                header_add_fields = hs_metrics(exome_qc_files['HsMetrics'])
+            hsm = glob.glob('*{}*'.format(exome_qc_files['HsMetrics']))
+            if not hsm:
+                hsm = exome_qc_files['HsMetrics']
+            else:
+                hsm = hsm[0]
+            if os.path.isfile(hsm):
+                header_add_fields = hs_metrics(hsm)
                 metrics_header = met_wgs_header + header_add_fields
                 # metrics_header = list(results.keys())
                 # metrics_header.sort()
