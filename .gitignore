@@ -1,3 +1,7 @@
+#qc files
+285*
+*.tsv
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
