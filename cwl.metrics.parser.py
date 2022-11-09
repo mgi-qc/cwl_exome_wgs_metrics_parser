@@ -20,7 +20,7 @@ id_list = []
 
 # assign woid
 if not args.w and not args.a and not args.fw and not args.fa and not args.m and not args.fm and not args.l:
-    sys.exit('usage:\npython3.5 cwlbleau.py -w <woid>\npython3.5 cwlbleau.py -f <file of woids>')
+    sys.exit('usage:\npython3.5 cwlbleau.py -w <woid>\npython3.8 cwlbleau.py -f <file of woids>')
 
 elif args.w:
     anp_or_woid = "WorkOrder"
@@ -373,7 +373,7 @@ for id in id_list:
         os.remove(cwd_metrics_library_outfile)
 
     # Admin name
-    # disapled admin query because of lims/gms docker container issue
+    # disabled admin query because of lims/gms docker container issue
     ap_new = "NA"
     if args.w or args.fw:
         admin_collections = subprocess.check_output(["wo_info", "--report", "billing", "--woid", id]).decode(
