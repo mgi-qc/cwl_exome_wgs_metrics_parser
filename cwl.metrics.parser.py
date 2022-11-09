@@ -374,13 +374,13 @@ for id in id_list:
 
     # Admin name
     # disabled admin query because of lims/gms docker container issue
-    ap_new = "NA"
-    if args.w or args.fw:
-        admin_collections = subprocess.check_output(["wo_info", "--report", "billing", "--woid", id]).decode(
-            'utf-8').splitlines()
-        for ap in admin_collections:
-            if 'Administration Project' in ap:
-                ap_new = ap.split(':')[1].strip()
+    # ap_new = "NA"
+    # if args.w or args.fw:
+    #     admin_collections = subprocess.check_output(["wo_info", "--report", "billing", "--woid", id]).decode(
+    #         'utf-8').splitlines()
+    #     for ap in admin_collections:
+    #         if 'Administration Project' in ap:
+    #             ap_new = ap.split(':')[1].strip()
 
     # call methods to generate results
     for line in model_groups:
@@ -392,7 +392,7 @@ for id in id_list:
         if 'Succeeded' in info[2]:
 
             results.clear()
-            results['Admin'] = ap_new
+            results['Admin'] = "MDS Gene Target Study"
             results[anp_or_woid] = id
             results['date_QC'] = mmddyy_slash
             results['last_succeeded_build'] = info[0]
