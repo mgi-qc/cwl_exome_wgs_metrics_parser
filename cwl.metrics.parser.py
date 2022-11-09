@@ -20,7 +20,7 @@ id_list = []
 
 # assign woid
 if not args.w and not args.a and not args.fw and not args.fa and not args.m and not args.fm and not args.l:
-    sys.exit('usage:\npython3.5 cwlbleau.py -w <woid>\npython3.8 cwlbleau.py -f <file of woids>')
+    sys.exit('usage:\npython3.8 cwlbleau.py -w <woid>\npython3.8 cwlbleau.py -f <file of woids>')
 
 elif args.w:
     anp_or_woid = "WorkOrder"
@@ -622,7 +622,8 @@ if args.e:
     print('----------')
     print('cwl.metrics.parser.py generation complete.\nRunning exome_report on cwl exome metrics files.')
     print('----------')
-    subprocess.run(["/gscuser/ltrani/Desktop/python/bin/python3", "/gscmnt/gc2783/qc/bin/aw/exome_report.py"])
+    subprocess.run(["python3.8", '/storage1/fs1/gtac-mgi/Active/Bioinformatics_analysis/mds_contract_gms_compute1/'
+                                 'mds_analysis/bin/qc/cwl_exome_report/exome_report.py'])
 
 if args.wgs:
     print('----------')
