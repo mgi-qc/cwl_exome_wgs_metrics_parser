@@ -1,5 +1,4 @@
 import os, csv, subprocess, datetime, argparse, glob, sys
-from pathlib import Path
 
 # argument input
 desc_str = """
@@ -364,18 +363,12 @@ for id in id_list:
 
     # create outfiles
     cwd_metrics_outfile = id + '.cwl.metrics.' + mm_dd_yy + '.tsv'
-    illumina_info_outifle = id + '.library_index_summary.tsv'
-
-    # intitalize sample tracking list
-    sample_name_totalkb = []
-
     print('\nMetrics outfile: {}\n'.format(cwd_metrics_outfile))
     print('----------')
     if os.path.isfile(cwd_metrics_outfile):
         os.remove(cwd_metrics_outfile)
 
     cwd_metrics_library_outfile = id + '.cwl.metrics.library.' + mm_dd_yy + '.tsv'
-
     if os.path.isfile(cwd_metrics_library_outfile):
         os.remove(cwd_metrics_library_outfile)
 
@@ -397,8 +390,6 @@ for id in id_list:
         info = line.split('\t')
 
         if 'Succeeded' in info[2]:
-
-            sample_name_totalkb.append(info[4])
 
             results.clear()
             results['Admin'] = ap_new
@@ -627,63 +618,14 @@ for id in id_list:
         else:
             print('{} {} Build Failed'.format(info[0], info[1]))
 
-    # generate totalKB
-    if os.path.isfile(illumina_info_outifle):
-        os.remove(illumina_info_outifle)
-
-    subprocess.run(["illumina_info", "--report", 'library_index_summary', "--format", 'tsv', "--sample",
-                    ','.join(sample_name_totalkb), "--incomplete", "--output-file-name", illumina_info_outifle])
-
-    no_kb_file = False
-    if not os.path.isfile(illumina_info_outifle):
-        print('Total kb file {} failed to create'.format(illumina_info_outifle))
-        Path(illumina_info_outifle).touch()
-        no_kb_file = True
-
-    with open(cwd_metrics_outfile, 'r') as cwdmet, open(illumina_info_outifle, 'r') as iio, \
-            open('ill.tkb.tmp.tsv', 'w') as tmp:
-
-        cwd_reader = csv.DictReader(cwdmet, delimiter='\t')
-        cwd_reader.fieldnames.append('Total Bases Kb (PF)')
-
-        iio_reader = csv.reader(iio, delimiter='\t')
-
-        tmp_writer = csv.DictWriter(tmp, fieldnames=cwd_reader.fieldnames, delimiter='\t')
-        tmp_writer.writeheader()
-
-        for cwl_line in cwd_reader:
-
-            if no_kb_file:
-
-                cwl_line['Total Bases Kb (PF)'] = 0
-                tmp_writer.writerow(cwl_line)
-                continue
-
-            else:
-
-                for i in range(3):
-                    next(iio)
-
-                cwl_line['Total Bases Kb (PF)'] = 0
-
-                for line in iio_reader:
-                    if line and cwl_line['sample_name'] in line[1]:
-                        cwl_line['Total Bases Kb (PF)'] += float(line[9].replace(',', ''))
-
-                tmp_writer.writerow(cwl_line)
-                iio.seek(0)
-
-        os.rename('ill.tkb.tmp.tsv', cwd_metrics_outfile)
-
-
 if args.e:
     print('----------')
     print('cwl.metrics.parser.py generation complete.\nRunning exome_report on cwl exome metrics files.')
     print('----------')
-    subprocess.run(["/gscuser/awagner/bin/python3", "/gscuser/awollam/aw/exome_report.py"])
+    subprocess.run(["/gscuser/ltrani/Desktop/python/bin/python3", "/gscmnt/gc2783/qc/bin/aw/exome_report.py"])
 
 if args.wgs:
     print('----------')
     print('cwl.metrics.parser.py generation complete.\nRunning wgs_report on cwl wgs metrics files.')
     print('----------')
-    subprocess.run(["/gscuser/awagner/bin/python3", "/gscuser/awollam/aw/wgs_report.py"])
+    subprocess.run(["/gscuser/ltrani/Desktop/python/bin/python3", "/gscmnt/gc2783/qc/bin//aw/wgs_report.py"])
