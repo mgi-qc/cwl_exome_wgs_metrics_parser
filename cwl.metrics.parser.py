@@ -1,4 +1,5 @@
 import os, csv, subprocess, datetime, argparse, glob, sys
+from pathlib import Path
 
 # argument input
 desc_str = """
@@ -363,12 +364,18 @@ for id in id_list:
 
     # create outfiles
     cwd_metrics_outfile = id + '.cwl.metrics.' + mm_dd_yy + '.tsv'
+    illumina_info_outifle = id + '.library_index_summary.tsv'
+
+    # intitalize sample tracking list
+    sample_name_totalkb = []
+
     print('\nMetrics outfile: {}\n'.format(cwd_metrics_outfile))
     print('----------')
     if os.path.isfile(cwd_metrics_outfile):
         os.remove(cwd_metrics_outfile)
 
     cwd_metrics_library_outfile = id + '.cwl.metrics.library.' + mm_dd_yy + '.tsv'
+
     if os.path.isfile(cwd_metrics_library_outfile):
         os.remove(cwd_metrics_library_outfile)
 
@@ -390,6 +397,8 @@ for id in id_list:
         info = line.split('\t')
 
         if 'Succeeded' in info[2]:
+
+            sample_name_totalkb.append(info[4])
 
             results.clear()
             results['Admin'] = ap_new
@@ -419,8 +428,13 @@ for id in id_list:
             if os.path.isfile(cram_file):
                 results['cram_file'] = os.getcwd() + '/{}'.format(cram_file)
 
-            if os.path.isfile(exome_qc_files['VerifyBamId.selfSM']):
-                verify_bamid(exome_qc_files['VerifyBamId.selfSM'])
+            vbi = glob.glob('*{}*'.format(exome_qc_files['VerifyBamId.selfSM']))
+            if not vbi:
+                vbi = exome_qc_files['VerifyBamId.selfSM']
+            else:
+                vbi = vbi[0]
+            if os.path.isfile(vbi):
+                verify_bamid(vbi)
             else:
                 results['SEQ_ID'] = 'FNF'
                 results['FREEMIX'] = 'FNF'
@@ -532,7 +546,11 @@ for id in id_list:
                 sample_library = []
                 os.chdir(info[3] + '/results')
 
-                with open(exome_qc_files['mark_dups_metrics'], 'r') as getmettxt:
+                mdm = glob.glob('*{}*'.format(exome_qc_files['mark_dups_metrics']))
+                if not mdm:
+                    sys.exit('No mark_dups_metrics found')
+
+                with open(mdm[0], 'r') as getmettxt:
                     infile_reader = csv.reader(getmettxt, delimiter='\t')
                     for line in infile_reader:
                         if line and 'lib' in line[0]:
@@ -546,14 +564,17 @@ for id in id_list:
                     results['Library'] = sample
 
                     # update mark_dup_metrics for individual library
-                    with open(exome_qc_files['mark_dups_metrics'], 'r') as getmettxt:
+                    with open(mdm[0], 'r') as getmettxt:
                         infile_reader = csv.reader(getmettxt, delimiter='\t')
                         for line in infile_reader:
                             if line and sample in line[0]:
                                 results['PERCENT_DUPLICATION'] = line[8]
 
                     # update alignment summary metrics for individual library
-                    with open(exome_qc_files['AlignmentSummaryMetrics'], 'r') as aligntxt:
+                    asm = glob.glob('*{}*'.format(exome_qc_files['AlignmentSummaryMetrics']))
+                    if not asm:
+                        sys.exit('No AlignmentSummaryMetrics file found.')
+                    with open(asm[0], 'r') as aligntxt:
                         infile_reader = csv.reader(aligntxt, delimiter='\t')
                         pf_aligned_bases = float()
                         for line in infile_reader:
@@ -572,7 +593,10 @@ for id in id_list:
                                     results['PCT_ADAPTER'] = line[23]
 
                     # update HsMetrics.txt for individual library
-                    with open(exome_qc_files['HsMetrics'], 'r') as hasmettxt:
+                    hsm = glob.glob('*{}*'.format(exome_qc_files['HsMetrics']))
+                    if not hsm:
+                        sys.exit('No HsMetrics file found.')
+                    with open(hsm[0], 'r') as hasmettxt:
                         infile_reader = csv.reader(hasmettxt, delimiter='\t')
                         for line in infile_reader:
                             if 'BAIT_SET' in line:
@@ -584,7 +608,10 @@ for id in id_list:
                             results[metric] = hs_metrics_dict[metric]
 
                     # update InsertSizeMetrics.txt for individual library
-                    with open(exome_qc_files['InsertSizeMetrics'], 'r') as inserttxt:
+                    ism = glob.glob('*{}*'.format(exome_qc_files['InsertSizeMetrics']))
+                    if not ism:
+                        sys.exit('No InsertSizeMetrics file found.')
+                    with open(ism[0], 'r') as inserttxt:
                         infile_reader = csv.reader(inserttxt, delimiter='\t')
                         for line in infile_reader:
                             if 'MEAN_INSERT_SIZE' in line:
@@ -599,6 +626,55 @@ for id in id_list:
 
         else:
             print('{} {} Build Failed'.format(info[0], info[1]))
+
+    # generate totalKB
+    if os.path.isfile(illumina_info_outifle):
+        os.remove(illumina_info_outifle)
+
+    subprocess.run(["illumina_info", "--report", 'library_index_summary', "--format", 'tsv', "--sample",
+                    ','.join(sample_name_totalkb), "--incomplete", "--output-file-name", illumina_info_outifle])
+
+    no_kb_file = False
+    if not os.path.isfile(illumina_info_outifle):
+        print('Total kb file {} failed to create'.format(illumina_info_outifle))
+        Path(illumina_info_outifle).touch()
+        no_kb_file = True
+
+    with open(cwd_metrics_outfile, 'r') as cwdmet, open(illumina_info_outifle, 'r') as iio, \
+            open('ill.tkb.tmp.tsv', 'w') as tmp:
+
+        cwd_reader = csv.DictReader(cwdmet, delimiter='\t')
+        cwd_reader.fieldnames.append('Total Bases Kb (PF)')
+
+        iio_reader = csv.reader(iio, delimiter='\t')
+
+        tmp_writer = csv.DictWriter(tmp, fieldnames=cwd_reader.fieldnames, delimiter='\t')
+        tmp_writer.writeheader()
+
+        for cwl_line in cwd_reader:
+
+            if no_kb_file:
+
+                cwl_line['Total Bases Kb (PF)'] = 0
+                tmp_writer.writerow(cwl_line)
+                continue
+
+            else:
+
+                for i in range(3):
+                    next(iio)
+
+                cwl_line['Total Bases Kb (PF)'] = 0
+
+                for line in iio_reader:
+                    if line and cwl_line['sample_name'] in line[1]:
+                        cwl_line['Total Bases Kb (PF)'] += float(line[9].replace(',', ''))
+
+                tmp_writer.writerow(cwl_line)
+                iio.seek(0)
+
+        os.rename('ill.tkb.tmp.tsv', cwd_metrics_outfile)
+
 
 if args.e:
     print('----------')
