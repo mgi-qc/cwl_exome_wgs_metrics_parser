@@ -252,9 +252,13 @@ def file_pick(list_of_files, file_type):
 
 def file_check(file_dir):
     exome_qc_files_dict = {}
+    # Update to hardcode 'final.cram' for MDS
+    # exome_qc_file_list = ['HsMetrics', 'mark_dups_metrics', 'GcBiasMetricsSummary',
+    #                       'AlignmentSummaryMetrics', 'WgsMetrics', 'InsertSizeMetrics',
+    #                       'VerifyBamId.selfSM', 'flagstat', 'cram']
     exome_qc_file_list = ['HsMetrics', 'mark_dups_metrics', 'GcBiasMetricsSummary',
                           'AlignmentSummaryMetrics', 'WgsMetrics', 'InsertSizeMetrics',
-                          'VerifyBamId.selfSM', 'flagstat', 'cram']
+                          'VerifyBamId.selfSM', 'flagstat', 'final.cram']
 
     while True:
         for qc_file in exome_qc_file_list:
@@ -268,6 +272,9 @@ def file_check(file_dir):
                 continue
 
             if len(found_files) > 1:
+                if qc_file == 'final.cram':
+                    exome_qc_files_dict[qc_file] = qc_file
+                    continue
                 exome_qc_files_dict[qc_file] = file_pick(found_files, qc_file)
             else:
                 print('\n----------\n')
@@ -289,7 +296,8 @@ def file_check(file_dir):
         print('QC Profile\n')
         for file_name, file in sorted(exome_qc_files_dict.items()):
             print('{}: {}'.format(file_name, file))
-        file_confirm = input('\nconfirm file selection y, anything else to re-start:\n')
+        # file_confirm = input('\nconfirm file selection y, anything else to re-start:\n')
+        file_confirm = 'y'
 
         if 'y' in file_confirm.lower():
             print('**********')
@@ -411,7 +419,7 @@ for id in id_list:
             os.chdir(info[3] + '/results')
 
             results['cram_file'] = 'NA'
-            cram_file = glob.glob('*{}'.format(exome_qc_files['cram']))
+            cram_file = glob.glob('*{}'.format(exome_qc_files['final.cram']))
             if not cram_file:
                 cram_file = 'NA'
             else:
